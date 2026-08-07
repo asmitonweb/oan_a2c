@@ -11,10 +11,11 @@ This pull request/commit implements a major refactoring of the geographical loca
 ## Technical Changes
 1. **New DocTypes**:
    - `A2C Region`
-   - `A2C Woreda` (Linked to Region)
+   - `A2C Zone` (Linked to Region)
+   - `A2C Woreda` (Linked to Zone)
    - `A2C Kebele` (Linked to Woreda)
 2. **Field Type Migration**:
-   - Updated `A2C Participating Bank` and `A2C Farmer Profile` schemas to replace raw text with `Link` fields.
+   - Updated `A2C Participating Bank`, `A2C Farmer Profile`, and `A2C Visit Schedule` schemas to replace raw text with `Link` fields.
 3. **API & Test Updates**:
    - Updated `test_loan_api.py` to programmatically generate Woreda and Kebele identifiers before execution.
    - Refactored `frappe.local.response` assertions to use `get()` on dicts, preventing `AttributeError` from polluting teardown logic.

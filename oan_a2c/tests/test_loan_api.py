@@ -27,8 +27,11 @@ class TestLoansV1API(unittest.TestCase):
 		# The test APIs expect these entities to exist in the database.
 		if not frappe.db.exists("A2C Region", "Sidama"):
 			frappe.get_doc({"doctype": "A2C Region", "region_name": "Sidama"}).insert(ignore_permissions=True)
+		if not frappe.db.exists("A2C Zone", {"zone_name": "SidamaZone"}):
+			frappe.get_doc({"doctype": "A2C Zone", "zone_name": "SidamaZone", "region": "Sidama"}).insert(ignore_permissions=True)
+		zone_id = frappe.db.get_value("A2C Zone", {"zone_name": "SidamaZone"}, "name")
 		if not frappe.db.exists("A2C Woreda", {"woreda_name": "Hawassa"}):
-			frappe.get_doc({"doctype": "A2C Woreda", "woreda_name": "Hawassa", "region": "Sidama"}).insert(ignore_permissions=True)
+			frappe.get_doc({"doctype": "A2C Woreda", "woreda_name": "Hawassa", "zone": zone_id}).insert(ignore_permissions=True)
 		woreda_id = frappe.db.get_value("A2C Woreda", {"woreda_name": "Hawassa"}, "name")
 		if not frappe.db.exists("A2C Kebele", {"kebele_name": "01", "woreda": woreda_id}):
 			frappe.get_doc({"doctype": "A2C Kebele", "kebele_name": "01", "woreda": woreda_id}).insert(ignore_permissions=True)
