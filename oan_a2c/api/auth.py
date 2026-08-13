@@ -421,6 +421,8 @@ def logout(refresh_token: str):
 	"""
 	Revokes the provided refresh token by deleting it from the database.
 	"""
+	check_rate_limit(f"rl:logout:{getattr(frappe.local, 'request_ip', 'guest')}", limit=30, window=60)
+
 	token_hash = hashlib.sha256(refresh_token.encode("utf-8")).hexdigest()
 
 	token_records = frappe.get_all(
