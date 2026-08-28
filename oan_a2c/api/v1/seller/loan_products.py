@@ -171,6 +171,77 @@ def create_product(**kwargs):
 	return success_response(data={"message": _("Products created"), "product_ids": created_ids})
 
 
+def _serialize_product(doc):
+	"""Build the full product dict for API responses.
+
+	Shared by get_product and mutation endpoints (update_product,
+	set_product_status) so the caller always receives the complete,
+	up-to-date representation without a follow-up GET.
+
+	Callers MUST authorize `doc` first — every one of them runs
+	frappe.has_permission("A2C Loan Product", ..., doc.name) and throws before
+	getting here. The taxonomy reads below are marked bank-scope-exempt on the
+	strength of that check; a new caller that skips it would silently turn this
+	into a cross-tenant read.
+	"""
+	product_id = doc.name
+
+	product_meta = []
+	for meta in getattr(doc, "product_meta", []):
+		product_meta.append({"meta_key": meta.meta_key, "meta_value": meta.meta_value})
+
+	categories = frappe.get_all(  # bank-scope-exempt: doc authorized by the caller, see docstring
+		"A2C Term Relationship",
+		filters={"loan_product": product_id, "term_type": "Category"},
+		pluck="term_category",
+	)
+
+	tags = frappe.get_all(  # bank-scope-exempt: doc authorized by the caller, see docstring
+		"A2C Term Relationship",
+		filters={"loan_product": product_id, "term_type": "Tag"},
+		pluck="term_tag",
+	)
+
+	lookups = frappe.get_all(  # bank-scope-exempt: doc authorized by the caller, see docstring
+		"A2C Loan Product Attribute Lookup",
+		filters={"loan_product": product_id},
+		fields=["taxonomy", "term_id"],
+	)
+	attributes = {}
+	for lookup in lookups:
+		tax = lookup.taxonomy
+		if tax not in attributes:
+			attributes[tax] = []
+		attributes[tax].append(lookup.term_id)
+
+	return {
+		"name": doc.name,
+		"is_saved": bool(
+			frappe.db.exists(
+				"A2C Saved Product",
+				{"user": frappe.session.user, "loan_product": product_id},
+			)
+		),
+		"product_name": doc.product_name,
+		"slug": doc.slug,
+		"status": doc.status,
+		"min_interest_rate": doc.min_interest_rate,
+		"max_interest_rate": doc.max_interest_rate,
+		"min_amount": doc.min_amount,
+		"max_amount": doc.max_amount,
+		"tenure_months": doc.tenure_months,
+		"description": doc.description,
+		"image": doc.image,
+		"bank": doc.bank,
+		"creation": to_tz_aware_iso(doc.creation),
+		"modified": to_tz_aware_iso(doc.modified),
+		"product_meta": product_meta,
+		"categories": categories,
+		"tags": tags,
+		"attributes": attributes,
+	}
+
+
 @frappe.whitelist()
 @validate_request(UpdateProductSchema)
 @handle_api_errors
@@ -214,8 +285,7 @@ def update_product(**kwargs):
 	return success_response(
 		data={
 			"message": _("Product updated"),
-			"product_id": doc.name,
-			"status": doc.status,
+			"product": _serialize_product(doc),
 		}
 	)
 
@@ -269,8 +339,7 @@ def set_product_status(**kwargs):
 		return success_response(
 			data={
 				"message": _("Product is already {0}").format(doc.status),
-				"product_id": doc.name,
-				"status": doc.status,
+				"product": _serialize_product(doc),
 			}
 		)
 
@@ -282,8 +351,7 @@ def set_product_status(**kwargs):
 	return success_response(
 		data={
 			"message": _("Product status updated to {0}").format(doc.status),
-			"product_id": doc.name,
-			"status": doc.status,
+			"product": _serialize_product(doc),
 		}
 	)
 
@@ -460,63 +528,7 @@ def get_product(**kwargs):
 		frappe.throw(_("Not permitted"), frappe.PermissionError)
 
 	doc = frappe.get_doc("A2C Loan Product", product_id)
-
-	product_meta = []
-	for meta in getattr(doc, "product_meta", []):
-		product_meta.append({"meta_key": meta.meta_key, "meta_value": meta.meta_value})
-
-	categories = frappe.get_all(  # bank-scope-exempt: product_id authorized via has_permission above
-		"A2C Term Relationship",
-		filters={"loan_product": product_id, "term_type": "Category"},
-		pluck="term_category",
-	)
-
-	tags = frappe.get_all(  # bank-scope-exempt: product_id authorized via has_permission above
-		"A2C Term Relationship",
-		filters={"loan_product": product_id, "term_type": "Tag"},
-		pluck="term_tag",
-	)
-
-	lookups = frappe.get_all(  # bank-scope-exempt: product_id authorized via has_permission above
-		"A2C Loan Product Attribute Lookup",
-		filters={"loan_product": product_id},
-		fields=["taxonomy", "term_id"],
-	)
-	attributes = {}
-	for lookup in lookups:
-		tax = lookup.taxonomy
-		if tax not in attributes:
-			attributes[tax] = []
-		attributes[tax].append(lookup.term_id)
-
-	product_data = {
-		"name": doc.name,
-		"is_saved": bool(
-			frappe.db.exists(
-				"A2C Saved Product",
-				{"user": frappe.session.user, "loan_product": product_id},
-			)
-		),
-		"product_name": doc.product_name,
-		"slug": doc.slug,
-		"status": doc.status,
-		"min_interest_rate": doc.min_interest_rate,
-		"max_interest_rate": doc.max_interest_rate,
-		"min_amount": doc.min_amount,
-		"max_amount": doc.max_amount,
-		"tenure_months": doc.tenure_months,
-		"description": doc.description,
-		"image": doc.image,
-		"bank": doc.bank,
-		"creation": to_tz_aware_iso(doc.creation),
-		"modified": to_tz_aware_iso(doc.modified),
-		"product_meta": product_meta,
-		"categories": categories,
-		"tags": tags,
-		"attributes": attributes,
-	}
-
-	return success_response(data={"product": product_data})
+	return success_response(data={"product": _serialize_product(doc)})
 
 
 @frappe.whitelist()

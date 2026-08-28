@@ -196,7 +196,7 @@ class TestA2CLoanProductAuditEvent(unittest.TestCase):
 			product_id=product.name, status="Archived", reason="Archived from Pending Approval"
 		)
 		self.assertEqual(res_arch_pending.get("status"), "success", str(res_arch_pending))
-		self.assertEqual(res_arch_pending.get("data", {}).get("status"), "Archived")
+		self.assertEqual(res_arch_pending.get("data", {}).get("product", {}).get("status"), "Archived")
 
 		# Archived -> Active (restore), then Active -> Archived (retire).
 		res_activate = set_product_status(product_id=product.name, status="Active", reason="Approved")
@@ -206,11 +206,11 @@ class TestA2CLoanProductAuditEvent(unittest.TestCase):
 			product_id=product.name, status="Archived", reason="Product discontinued"
 		)
 		self.assertEqual(res_arch.get("status"), "success", str(res_arch))
-		self.assertEqual(res_arch.get("data", {}).get("status"), "Archived")
+		self.assertEqual(res_arch.get("data", {}).get("product", {}).get("status"), "Archived")
 
 		res_restore = set_product_status(product_id=product.name, status="Active", reason="Relaunched")
 		self.assertEqual(res_restore.get("status"), "success", str(res_restore))
-		self.assertEqual(res_restore.get("data", {}).get("status"), "Active")
+		self.assertEqual(res_restore.get("data", {}).get("product", {}).get("status"), "Active")
 
 		# The transitions to Archived are captured in the audit trail.
 		audit_logs = frappe.get_all(
